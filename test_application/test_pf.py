@@ -11,9 +11,9 @@ from NRPF import newtonPF
 
 
 if __name__ == "__main__":
-  mpc = load_case("../data/case300.m")
+  mpc = load_case("../data/case2736sp.m")
   mpc = ext2int(mpc)
-  d = 'cpu'
+  d = 'cuda'
   mpcDict = convert2dict(mpc, device = d)
   newtonPF(mpcDict, device = d)
 

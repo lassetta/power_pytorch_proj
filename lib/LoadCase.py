@@ -98,20 +98,20 @@ def load_case(fname):
       i = i + 1
   int_buses = ['f_bus', 't_bus', 'status']
   float_branches = ['x', 'r', 'b', 'angle', 'ratio']
-  BRANCH = pd.DataFrame(branch_arr, columns = branch_labels)
+  BRANCH = pd.DataFrame(branch_arr[:,0:len(branch_labels)], columns = branch_labels)
   BRANCH[int_buses] =  BRANCH[int_buses].astype(dtype = np.int32)
   BRANCH[float_branches] =  BRANCH[float_branches].astype(dtype = np.double)
   
 
   int_buses = ['bus_i', 'Area', 'zone']
   float_buses = ['Gs', 'Bs']
-  BUS = pd.DataFrame(bus_arr, columns = bus_labels)
+  BUS = pd.DataFrame(bus_arr[:,0:len(bus_labels)], columns = bus_labels)
   BUS[int_buses] =  BUS[int_buses].astype(dtype = np.int32)
   BUS[float_buses] =  BUS[float_buses].astype(dtype = np.double)
 
 
   int_buses = ['bus', 'status']
-  GEN = pd.DataFrame(gen_arr, columns = gen_labels + gen_labels2)
+  GEN = pd.DataFrame(gen_arr[:,0:len(gen_labels + gen_labels2)], columns = gen_labels + gen_labels2)
   GEN[int_buses] =  GEN[int_buses].astype(dtype = np.int32)
 
   mpc = dict({"BaseMVA":BaseMVA, "branch":BRANCH, "bus":BUS, "gen":GEN})

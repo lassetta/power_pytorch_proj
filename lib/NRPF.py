@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix
+import scipy.sparse as scsp
+from scipy.linalg import lu_factor, lu_solve
 import torch
+import time
+import timeit
 
 from LoadCase import *
 from auxFCNs import *
@@ -16,7 +20,6 @@ def newtonPF(mpcd, device = 'cpu', max_iter = 100):
   # Make Sbus and Ybus
   Sbus = MakeSbus(mpcd, device = device)
   Ybus = MakeYbus(mpcd, device = device)
-
   # indexing for updates
   PQtype = mpcd.bus.type
   PQidcs = mpcd.bus.ibus_i
@@ -40,16 +43,23 @@ def newtonPF(mpcd, device = 'cpu', max_iter = 100):
 
   for i in range(max_iter):
     # get the jacobian
+    s1 = time.process_time()
     V = torch.multiply(VM, torch.exp( (torch.pi*1j/180) * VA))
     VA = torch.angle(V)
     VM = torch.abs(V)
     
     J = getJacobian(mpcd, V, Ybus, device = device)
     norm_F = torch.linalg.norm(F, ord = torch.inf)
-    if norm_F < 1e-10:
+    #print(norm_F)
+    s = time.process_time()
+    if norm_F < 1e-5:
       print("The powerflow successfully converged in {} iterations.".format(i+1))
       break
+
     dx = torch.linalg.solve(J, -1*F)
+    e = time.process_time()
+    print("solver time: {}".format(e - s))
+    dx = dx.flatten()
 
     # update!
     VA[PVidcs] = VA[PVidcs] + dx[j1:j2]
@@ -63,6 +73,8 @@ def newtonPF(mpcd, device = 'cpu', max_iter = 100):
     real_mm = mm_eqns[PVPQidcs].real
     imag_mm = mm_eqns[PQidcs].imag
     F = torch.hstack((real_mm, imag_mm))
+    e1 = time.process_time()
+    print("loop time: {}".format(e1 - s1))
     #print(VA)
 
 

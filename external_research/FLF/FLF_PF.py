@@ -10,6 +10,17 @@ from auxFCNs import *
 from NRPF import newtonPF
 
 
+
+def f_forward(y,N,B,inv):
+  u_est = torch.zeros(y.shape)
+  u_est[:N] = torch.log(y[:N])
+  u_est[N:N+B] = torch.log(torch.square(y[N:N+B]) + torch.square(y[N+B:]))
+  u_est[N+B:] = torch.arctan(y[N+B:]/y[N:N+B])
+  if inv == 1:
+    return 1/u_est
+  else:
+    return u_est
+
 if __name__ == "__main__":
   mpc = load_case("../../data/case39.m")
   mpc = ext2int(mpc)
@@ -37,33 +48,16 @@ if __name__ == "__main__":
   x = torch.hstack([PV_phase, PQ_phase, PQ_alpha, PV_alpha])
   print(x.shape)
   
-  sys.exit(1)
-
-  '''
-  PV_active = Sbus[mpcd.bus['type'] == 1].real
-  PQ_active = Sbus[mpcd.bus['type'] == 2].real
-  PV_reactive = Sbus[mpcd.bus['type'] == 1].imag
-  PQ_reactive = Sbus[mpcd.bus['type'] == 2].imag
-  slack_reactive = Sbus[mpcd.bus['type'] == 3].imag
-  known_p = torch.vstack([PQ_reactive, PV_reactive, slack_reactive, PQ_active, PV_active])
-  print(known_p.flatten())
-
-  # build the state vector as described in the paper
-  # Factored Solution of Infeasible Load Flow Cases by Antonio Gomez
-  PV_phase = mpcd.bus.Va[mpcd.bus['type'] == 1]
-  PQ_phase = mpcd.bus.Va[mpcd.bus['type'] == 2]
-  PV_mag = torch.log(torch.square(mpcd.bus.Vm[mpcd.bus['type'] == 1]))
-  PQ_mag = torch.log(torch.square(mpcd.bus.Vm[mpcd.bus['type'] == 2]))
-  slack_mag = torch.log(torch.square(mpcd.bus.Vm[mpcd.bus['type'] == 3]))
-  state_vec = torch.hstack([PV_mag,PQ_mag, slack_mag,PQ_phase, PV_phase])
-  '''
 
   # build the intermediate vector as described in the paper
   # Factored Solution of Infeasible Load Flow Cases by Antonio Gomez
   br_t = mpcd.branch.it_bus
   br_f = mpcd.branch.if_bus
+ 
 
   Ui = torch.square(mpcd.bus.Vm) 
+  B = br_t.shape[0]
+  N = Ui.shape[0]
   Va_ij = mpcd.bus.Va[br_f] - mpcd.bus.Va[br_t]
   Va_ij = Va_ij * (torch.pi / 180.)
   KL_ij = torch.multiply(mpcd.bus.Vm[br_f], mpcd.bus.Vm[br_t])
@@ -81,7 +75,38 @@ if __name__ == "__main__":
   print(y.shape)
   print(u.shape)
   
+  # Build the E and C matrices
+  p = p.unsqueeze(-1)
+  y = y.unsqueeze(-1)
+  E1 = torch.matmul(p,y.T)
+  E2 = torch.inverse(torch.matmul(y,y.T))
+  E = torch.matmul(E1,E2)
+  print(E.shape)
 
+  x = x.unsqueeze(-1)
+  u = u.unsqueeze(-1)
+  C1 = torch.matmul(u,x.T)
+  C2 = torch.inverse(torch.matmul(x,x.T))
+  C = torch.matmul(C1,C2)
+  print(C.shape)
+
+  # Get the F jacobian
+  F = torch.zeros((y.shape[0],y.shape[0]))
+
+  i = 0
+  for j in range(Ui.shape[0]):
+    F[i,i] = 1/Ui[i]
+    i += 1
+  for j in range(K_ij.shape[0]):
+    scalar = 1/(torch.square(K_ij[j]) + torch.square(L_ij[j]))
+    F[i,i] = scalar * 2 * K_ij[j]
+    F[i+1,i] = scalar * -1 * L_ij[j]
+    F[i,i+1] = scalar * 2 * L_ij[j]
+    F[i+1,i+1] = scalar *  K_ij[j]
+    i += 2
+
+  u_est = f_forward(y,N,B,1) 
+  print(u_est)
 
 
 

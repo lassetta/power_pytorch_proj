@@ -81,6 +81,8 @@ if __name__ == "__main__":
   E1 = torch.matmul(p,y.T)
   E2 = torch.inverse(torch.matmul(y,y.T))
   E = torch.matmul(E1,E2)
+  print(E1.shape)
+  print(E2.shape)
   print(E.shape)
 
   x = x.unsqueeze(-1)
@@ -106,7 +108,15 @@ if __name__ == "__main__":
     i += 2
 
   u_est = f_forward(y,N,B,1) 
-  print(u_est)
+
+  # update step:
+  y_k = f_forward(torch.matmul(C,x),N,B,1).type(torch.DoubleTensor)
+  Esq = torch.matmul(E,E.T)
+  print(Esq)
+  p_Eyk = p - torch.matmul(E,y_k) 
+  lam = torch.linalg.solve(Esq, p_Eyk)
+  print(lam)
+
 
 
 

@@ -124,53 +124,77 @@ if __name__ == "__main__":
 
   data_k = []
   data_k1 = []
-  for qq in tqdm(range(0,2000)):
-    gc.collect()
-    converged = 0
-    i = 0
-    mpcd = copy.deepcopy(gt_mpcd)
-    center_load = gt_mpcd.bus.Pd.numpy()
-    random_load = np.random.uniform(center_load * (2/3), center_load * 1.5, size = center_load.shape)
-    mpcd.bus.Pd = torch.tensor(random_load, dtype=torch.float64)
-    step = mpcd
-    while True:
-      # get previous data
-      prev_step = step
-      prev_step_Va = prev_step.bus.Va
-      prev_step_Vm = prev_step.bus.Vm
-      prev_step_Pg = prev_step.gen.Pg 
-      prev_step_Qg = prev_step.gen.Qg 
+  data_state_l = []
+  # 3500 - 7500
+  LOAD_LOOKUP = [3500,4000,4500,5000,5500,6000,6500,7000,7500]
+  for LOAD in LOAD_LOOKUP:
+    for qq in tqdm(range(0,1000)):
+      gc.collect()
+      converged = 0
+      i = 0
+      mpcd = copy.deepcopy(gt_mpcd)
+      center_load = gt_mpcd.bus.Pd.numpy()
+      center_load = center_load / (center_load.sum()/LOAD)
+      random_load = np.random.normal(center_load, center_load * 0.15, size = center_load.shape)
+      random_load[random_load < 0] = 0
+      mpcd.bus.Pd = torch.tensor(random_load, dtype=torch.float64)
+      step = mpcd
+      data_k_sub = []
+      data_k1_sub = []
+      data_state_l_sub = []
+      while True:
+        # get previous data
+        prev_step = step
+        prev_step_Va = prev_step.bus.Va
+        prev_step_Vm = prev_step.bus.Vm
+        prev_step_Pg = prev_step.gen.Pg 
+        prev_step_Qg = prev_step.gen.Qg 
+        data_state_Pd = prev_step.bus.Pd
+        data_state_Qd = prev_step.bus.Qd
 
-      prev_data = torch.hstack([prev_step_Va, prev_step_Vm, prev_step_Pg, prev_step_Qg])
-      prev_data = prev_data.flatten().numpy()
-      step, converged = PF_step(step, conv_thresh = 1e-9)
-      if converged:
-        step = None
-        prev_step = None
-        break
-      else:
-        step_Va = step.bus.Va
-        step_Vm = step.bus.Vm
-        step_Pg = step.gen.Pg
-        step_Qg = step.gen.Qg
+        prev_data = torch.hstack([prev_step_Va, prev_step_Vm, prev_step_Pg, prev_step_Qg])
+        prev_data = prev_data.flatten().numpy()
 
-        data = torch.hstack([step_Va, step_Vm, step_Pg, step_Qg])
-        data = data.flatten().numpy()
-
-        data_k.append(prev_data)
-        data_k1.append(data)
-        prev_step = None
-
-        i = i + 1
-        if i>100:
-          print(i)
+        data_state = torch.hstack([data_state_Pd, data_state_Qd])
+        data_state = data_state.flatten().numpy()
+        step, converged = PF_step(step, conv_thresh = 1e-9)
+        if converged:
+          step = None
+          prev_step = None
           break
+        else:
+          step_Va = step.bus.Va
+          step_Vm = step.bus.Vm
+          step_Pg = step.gen.Pg
+          step_Qg = step.gen.Qg
+
+          data = torch.hstack([step_Va, step_Vm, step_Pg, step_Qg])
+          data = data.flatten().numpy()
+
+          data_state_l_sub.append(data_state)
+          data_k_sub.append(prev_data)
+          data_k1_sub.append(data)
+          prev_step = None
+
+          i = i + 1
+          if i>100:
+            data_state_l_sub = None
+            data_k_sub = None
+            data_k1_sub = None
+            break
+      if data_k_sub != None:
+        data_state_l.extend(data_state_l_sub)
+        data_k.extend(data_k_sub)
+        data_k1.extend(data_k1_sub)
   data_k = np.vstack(data_k)
   data_k1 = np.vstack(data_k1)
+  data_state_l = np.vstack(data_state_l)
   print(data_k.shape)
   print(data_k1.shape)
+  print(data_state_l.shape)
   np.savetxt("data_input.csv", data_k, delimiter = ',')
   np.savetxt("data_output.csv", data_k1, delimiter = ',')
+  np.savetxt("data_state_l.csv", data_state_l, delimiter = ',')
 
 
 

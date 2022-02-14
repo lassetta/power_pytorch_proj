@@ -10,7 +10,7 @@ import timeit
 from LoadCase import *
 from auxFCNs import *
 
-def newtonPF(mpcd, device = 'cpu', max_iter = 100):
+def newtonPF(mpcd, device = 'cpu', max_iter = 1000):
 
   # extract VA and VM
   VA = mpcd.bus.Va
@@ -53,12 +53,10 @@ def newtonPF(mpcd, device = 'cpu', max_iter = 100):
     #print(norm_F)
     s = time.process_time()
     if norm_F < 1e-5:
-      print("The powerflow successfully converged in {} iterations.".format(i+1))
-      break
+      return 1
 
     dx = torch.linalg.solve(J, -1*F)
     e = time.process_time()
-    print("solver time: {}".format(e - s))
     dx = dx.flatten()
 
     # update!
@@ -74,8 +72,8 @@ def newtonPF(mpcd, device = 'cpu', max_iter = 100):
     imag_mm = mm_eqns[PQidcs].imag
     F = torch.hstack((real_mm, imag_mm))
     e1 = time.process_time()
-    print("loop time: {}".format(e1 - s1))
     #print(VA)
+  return 0
 
 
 
